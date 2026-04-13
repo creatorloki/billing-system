@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Store Billing System</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f4f4; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .form-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        select, input, button { padding: 10px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border-bottom: 1px solid #ddd; padding: 10px; text-align: left; }
+        .total-area { text-align: right; margin-top: 20px; }
+        @media print { .form-group, .remove-btn, .save-btn { display: none; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Billing System</h2>
+    
+    <div class="form-group">
+        <select id="productSelect">
+            <option value="" disabled selected>Select Product</option>
+            {% for product in products %}
+            <option value="{{ product[0] }}" data-price="{{ product[1] }}">{{ product[0] }} (${{ product[1] }})</option>
+            {% endfor %}
+        </select>
+        <input type="number" id="qty" value="1" min="1" style="width: 50px;">
+        <button onclick="addItem()" style="background: #28a745; color: white; border: none;">Add Item</button>
+    </div>
+
+    <table>
+        <thead>
+            <tr><th>Item</th><th>Price</th><th>Qty</th><th>Total</th><th>Action</th></tr>
+        </thead>
+        <tbody id="billBody"></tbody>
+    </table>
+
+    <div class="total-area">
+        <p>Subtotal: $<span id="subtotal">0.00</span></p>
+        <h3>Grand Total: $<span id="grandTotal">0.00</span></h3>
+        <button class="save-btn" onclick="saveBill()" style="background: #007bff; color: white; border: none; padding: 10px 20px;">Save & Print</button>
+    </div>
+</div>
+
+<script>
+    let cart = [];
+
+    function addItem() {
+        let sel = document.getElementById('productSelect');
+        let name = sel.value;
+        let price = parseFloat(sel.options[sel.selectedIndex].getAttribute('data-price'));
+        let qty = parseInt(document.getElementById('qty').value);
+
+        if(!name) return alert("Select a product");
+
+        cart.push({ name, price, qty, total: price * qty });
+        render();
+    }
+
+    function render() {
+        let body = document.getElementById('billBody');
+        body.innerHTML = '';
+        let sub = 0;
+        cart.forEach((item, index) => {
+            sub += item.total;
+            body.innerHTML += `<tr>
+                <td>${item.name}</td><td>$${item.price}</td><td>${item.qty}</td><td>$${item.total.toFixed(2)}</td>
+                <td><button class="remove-btn" onclick="cart.splice(${index},1);render()">X</button></td>
+            </tr>`;
+        });
+        document.getElementById('subtotal').innerText = sub.toFixed(2);
+        document.getElementById('grandTotal').innerText = (sub * 1.05).toFixed(2); // 5% tax
+    }
+
+    function saveBill() {
+        if(cart.length === 0) return alert("Cart is empty");
+        
+        let data = {
+            items: cart,
+            subtotal: parseFloat(document.getElementById('subtotal').innerText),
+            tax: parseFloat(document.getElementById('subtotal').innerText) * 0.05,
+            grand_total: parseFloat(document.getElementById('grandTotal').innerText)
+        };
+
+        fetch('/save_invoice', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        }).then(() => {
+            window.print();
+            cart = [];
+            render();
+        });
+    }
+</script>
+</body>
+</html>
